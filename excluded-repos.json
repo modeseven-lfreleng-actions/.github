@@ -1,0 +1,11 @@
+{
+  "excluded": [
+    "actions-template",
+    "docker-save-images-action",
+    "gerrit-review-action.backup",
+    "gh-action-pypi-publish",
+    "gh-action-sigstore-python",
+    "semantic-tag-increment",
+    ".github"
+  ]
+}
