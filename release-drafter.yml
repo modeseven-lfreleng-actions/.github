@@ -1,5 +1,4 @@
 ---
-# SPDX-FileCopyrightText: 2021 Andrew Grimberg <tykeal@bardicgrove.org>
 # SPDX-FileCopyrightText: 2026 The Linux Foundation
 # SPDX-License-Identifier: Apache-2.0
 
@@ -103,7 +102,7 @@ version-resolver:
   default: patch
 # yamllint disable rule:line-length
 template: |
-  [![Downloads for this release](https://img.shields.io/github/downloads/$REPOSITORY/v$RESOLVED_VERSION/total.svg)](https://github.com/$REPOSITORY/releases/v$RESOLVED_VERSION)
+  [![Downloads for this release](https://img.shields.io/github/downloads/$REPOSITORY/v$RESOLVED_VERSION/total.svg)](https://github.com/$REPOSITORY/releases/tag/v$RESOLVED_VERSION)
 
   $CHANGES
 

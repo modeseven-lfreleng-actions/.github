@@ -94,6 +94,63 @@ during the audit. Typical exclusions include:
 To add a new exclusion, edit `excluded-repos.json` and add the
 repository name to the `excluded` array.
 
+## Tagging and Releasing Actions
+
+### Prerequisites
+
+1. All open/pending pull requests should be merged
+2. Sync your fork's default branch with upstream:
+
+<!-- markdownlint-disable MD013 -->
+
+```shell
+git fetch upstream
+git checkout main
+git merge upstream/main
+git push origin main
+```
+
+<!-- markdownlint-enable MD013 -->
+
+### Creating a release
+
+Create and push a signed, annotated tag:
+
+```shell
+git tag -s -a v1.2.3 -m "v1.2.3"
+git push upstream --tags
+```
+
+The tag push triggers one of two release workflows:
+
+| Workflow | Trigger | Use case |
+| --- | --- | --- |
+| `tag-push.yaml` | Tag push | Generic (non-language-specific) actions |
+| `build-test-release.yaml` | Tag push | Python actions that publish to PyPI |
+
+#### Generic actions (`tag-push.yaml`)
+
+Verifies the pushed tag is valid semver, then promotes the
+corresponding draft GitHub release. The master copy of this
+workflow lives in
+[actions-template](https://github.com/lfreleng-actions/actions-template).
+
+#### Python actions (`build-test-release.yaml`)
+
+Runs the full Python release pipeline:
+
+1. Tag format and signature validation
+2. Python build with Sigstore signing and attestations
+3. Pytest test suite
+4. SBOM generation and Grype vulnerability scan
+5. pip-audit for known security issues
+6. Publish to test.pypi.org then pypi.org
+7. Attach build artefacts to the GitHub release
+8. Promote the draft release
+
+> **Note:** Release workflows for other language types
+> (Go, Maven, etc.) have not yet been authored.
+
 ## Slack Setup
 
 The repository audit workflow sends notifications using the official
