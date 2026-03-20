@@ -3,11 +3,15 @@ SPDX-License-Identifier: Apache-2.0
 SPDX-FileCopyrightText: 2026 The Linux Foundation
 -->
 
-# Linux Foundation Release Engineering — GitHub Actions
+# Linux Foundation Release Engineering
+
+[Documentation](https://docs.releng.linuxfoundation.org/)
+
+## GitHub Actions
 
 The [Linux Foundation](https://www.linuxfoundation.org/) Release Engineering
 team maintains this organisation. It provides a comprehensive collection of
-GitHub Actions, reusable workflows, and CI/CD tooling used across Linux
+GitHub Actions and CI/CD tooling used across Linux
 Foundation hosted projects.
 
 All actions follow Conventional Commits, use pinned dependencies, and ship
@@ -195,10 +199,23 @@ verify the actions and workflows in this organisation:
 
 <!-- markdownlint-disable MD013 -->
 
-| Repository         | Purpose                                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------------------ |
-| [actions-template] | Template repository for creating new GitHub Actions                                                    |
-| [.github]          | Organisation-wide configuration (default community health files, shared release-drafter configuration) |
+| Repository                  | Purpose                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [actions-template]          | Template repository for creating new GitHub Actions                                                    |
+| [.github]                   | Organisation-wide configuration (default community health files, shared release-drafter configuration) |
+| [releng-reusable-workflows] | Shared/common workflows leveraging these actions (hosted in the [lfit](https://github.com/lfit) org)   |
+
+<!-- markdownlint-enable MD013 -->
+
+## 🔨 Tools
+
+<!-- markdownlint-disable MD013 -->
+
+| Tool                 | Description                                                      |
+| -------------------- | ---------------------------------------------------------------- |
+| [dependamerge]       | Bulk merge/close pull requests and Gerrit changes across an org  |
+| [gerrit-to-platform] | Gerrit hooks to allow using GitHub and GitLab as CI platforms    |
+| [docs-conf]          | Sphinx build configuration for Release Engineering documentation |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -210,6 +227,69 @@ the relevant repository. All repositories follow the
 for commit messages and PR titles. The
 [Apache-2.0](https://spdx.org/licenses/Apache-2.0.html) license applies
 to all repositories unless otherwise stated.
+
+## Tagging and Releasing Actions
+
+### Prerequisites
+
+1. Merge all open/pending pull requests
+2. Sync your fork with upstream:
+
+<!-- markdownlint-disable MD013 -->
+
+``` shell
+git fetch upstream
+git checkout main
+git merge --ff-only upstream/main
+git push origin main
+```
+
+<!-- markdownlint-enable MD013 -->
+
+### Creating a release
+
+Create and push a signed, annotated tag:
+
+``` shell
+git tag -s -a v1.2.3 -m "v1.2.3"
+git push upstream v1.2.3
+```
+
+The tag push triggers one of two release workflows:
+
+<!-- markdownlint-disable MD013 -->
+
+| Workflow | Use case |
+| --- | --- |
+| `tag-push.yaml` | Generic (non-language-specific) actions |
+| `build-test-release.yaml` | Python actions that publish to PyPI |
+
+<!-- markdownlint-enable MD013 -->
+
+> **Note:** These workflows live in each action repository,
+> not in this `.github` repo. Canonical definitions are in
+> [actions-template](https://github.com/lfreleng-actions/actions-template).
+
+#### Generic actions (`tag-push.yaml`)
+
+Verifies the tag is valid semver then promotes the
+corresponding draft GitHub release.
+
+#### Python actions (`build-test-release.yaml`)
+
+Runs the full Python release pipeline:
+
+1. Tag format and signature validation
+2. Python build with Sigstore signing and attestations
+3. Pytest test suite
+4. SBOM generation and Grype vulnerability scan
+5. pip-audit for known security issues
+6. Publish to test.pypi.org then pypi.org
+7. Attach build artefacts to the GitHub release
+8. Promote the draft release
+
+> **Note:** Release workflows for other language types
+> (Go, Maven, etc.) still need authoring.
 
 <!-- Build & Test Actions -->
 [python-build-action]: https://github.com/lfreleng-actions/python-build-action
@@ -319,3 +399,9 @@ to all repositories unless otherwise stated.
 <!-- Organisation Resources -->
 [actions-template]: https://github.com/lfreleng-actions/actions-template
 [.github]: https://github.com/lfreleng-actions/.github
+[releng-reusable-workflows]: https://github.com/lfit/releng-reusable-workflows
+
+<!-- Tools -->
+[dependamerge]: https://github.com/lfit/dependamerge
+[gerrit-to-platform]: https://gerrit.linuxfoundation.org/infra/admin/repos/releng/gerrit_to_platform
+[docs-conf]: https://gerrit.linuxfoundation.org/infra/admin/repos/releng/docs-conf

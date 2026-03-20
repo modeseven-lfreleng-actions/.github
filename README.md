@@ -54,8 +54,9 @@ When a repository in the `lfreleng-actions` organisation runs the
 `release-drafter/release-drafter` action and does **not** have its own
 `.github/release-drafter.yml`, GitHub automatically falls back to the
 configuration in this repository. The shared configuration uses the
-`$REPOSITORY` template variable so that release notes, download badges,
-and issue links resolve to the correct URLs for any inheriting repository.
+`$OWNER/$REPOSITORY` template variables so that release notes, download
+badges, and issue links resolve to the correct URLs for any inheriting
+repository.
 
 Repositories that need custom categories or version-resolver rules can
 override the defaults by adding their own `.github/release-drafter.yml`.
@@ -143,6 +144,12 @@ In the [`.github` repository settings](https://github.com/lfreleng-actions/.gith
 3. Add a **Repository variable**:
    - Name: `SLACK_CHANNEL_ID`
    - Value: the channel ID from step 4
+
+## Tagging and Releasing Actions
+
+For instructions on tagging and releasing actions in this organisation,
+see the
+[organisation profile README](profile/README.md#tagging-and-releasing-actions).
 
 ## Contributing
 
