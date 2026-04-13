@@ -211,22 +211,40 @@ verify the actions and workflows in this organisation:
 
 <!-- markdownlint-disable MD013 -->
 
-| Tool                 | Description                                                      |
-| -------------------- | ---------------------------------------------------------------- |
-| [dependamerge]       | Bulk merge/close pull requests and Gerrit changes across an org  |
-| [gerrit-to-platform] | Gerrit hooks to allow using GitHub and GitLab as CI platforms    |
-| [docs-conf]          | Sphinx build configuration for Release Engineering documentation |
+| Tool                   | Description                                                      |
+| ---------------------- | ---------------------------------------------------------------- |
+| [dependamerge]         | Bulk merge/close pull requests and Gerrit changes across an org  |
+| [docs-conf]            | Sphinx build configuration for Release Engineering documentation |
+| [gerrit-to-platform]   | Gerrit hooks to allow using GitHub and GitLab as CI platforms    |
+| [markdown-table-fixer] | Fix markdown table formatting as a CLI tool or pre-commit hook   |
+| [pull-request-fixer]   | Fix pull request titles, bodies, and files across a GitHub org   |
 
 <!-- markdownlint-enable MD013 -->
 
-## Contributing
+## Building GitHub Workflows
 
-Contributions are welcome. Please open an issue or pull request against
-the relevant repository. All repositories follow the
-[Conventional Commits](https://www.conventionalcommits.org/) specification
-for commit messages and PR titles. The
-[Apache-2.0](https://spdx.org/licenses/Apache-2.0.html) license applies
-to all repositories unless otherwise stated.
+The actions published here are designed for projects using both
+GitHub and Gerrit as the source of code/truth. They all work in
+native GitHub environments, and can also be used in Gerrit
+environments with some adaptation to the workflows.
+
+Workflow adaptation for Gerrit is documented in the
+[gerrit-to-platform documentation][gerrit-to-platform-docs].
+Some [example workflows][gerrit-to-platform-examples] are also
+available.
+
+### Example Workflows
+
+<!-- markdownlint-disable MD013 -->
+
+| Workflow                                                 | Description                                                           |
+| -------------------------------------------------------- | --------------------------------------------------------------------- |
+| [`github-vanilla-verify.yaml`][wf-github-vanilla]        | A simple workflow that verifies PRs with no Gerrit integration        |
+| [`gerrit-verify.yaml`][wf-gerrit-verify]                 | A workflow with Gerrit integration that verifies pull requests        |
+| [`gerrit-verify-manual-dispatch.yaml`][wf-gerrit-manual] | A Gerrit integrated verify workflow that can also be manually invoked |
+| [`gerrit-merge.yaml`][wf-gerrit-merge]                   | A GitHub workflow that handles merged changes in Gerrit               |
+
+<!-- markdownlint-enable MD013 -->
 
 ## Tagging and Releasing Actions
 
@@ -259,23 +277,22 @@ The tag push triggers one of two release workflows:
 
 <!-- markdownlint-disable MD013 -->
 
-| Workflow | Use case |
-| --- | --- |
-| `tag-push.yaml` | Generic (non-language-specific) actions |
-| `build-test-release.yaml` | Python actions that publish to PyPI |
+| Workflow                  | Use case                                |
+| ------------------------- | --------------------------------------- |
+| `tag-push.yaml`           | Generic (non-language-specific) actions |
+| `build-test-release.yaml` | Python actions that publish to PyPI     |
 
 <!-- markdownlint-enable MD013 -->
 
 > **Note:** These workflows live in each action repository,
-> not in this `.github` repo. Canonical definitions are in
-> [actions-template](https://github.com/lfreleng-actions/actions-template).
+> not in this `.github` repo.
 
-#### Generic actions (`tag-push.yaml`)
+#### Generic action/repository (`tag-push.yaml`)
 
 Verifies the tag is valid semver then promotes the
 corresponding draft GitHub release.
 
-#### Python actions (`build-test-release.yaml`)
+#### Python action/repository (`build-test-release.yaml`)
 
 Runs the full Python release pipeline:
 
@@ -290,6 +307,15 @@ Runs the full Python release pipeline:
 
 > **Note:** Release workflows for other language types
 > (Go, Maven, etc.) still need authoring.
+
+## Contributing
+
+Contributions are welcome. Please open an issue or pull request against
+the relevant repository. All repositories follow the
+[Conventional Commits](https://www.conventionalcommits.org/) specification
+for commit messages and PR titles. The
+[Apache-2.0](https://spdx.org/licenses/Apache-2.0.html) license applies
+to all repositories unless otherwise stated.
 
 <!-- Build & Test Actions -->
 [python-build-action]: https://github.com/lfreleng-actions/python-build-action
@@ -403,5 +429,15 @@ Runs the full Python release pipeline:
 
 <!-- Tools -->
 [dependamerge]: https://github.com/lfit/dependamerge
-[gerrit-to-platform]: https://gerrit.linuxfoundation.org/infra/admin/repos/releng/gerrit_to_platform
 [docs-conf]: https://gerrit.linuxfoundation.org/infra/admin/repos/releng/docs-conf
+[gerrit-to-platform]: https://gerrit.linuxfoundation.org/infra/admin/repos/releng/gerrit_to_platform
+[markdown-table-fixer]: https://github.com/lfreleng-actions/markdown-table-fixer
+[pull-request-fixer]: https://github.com/lfreleng-actions/pull-request-fixer
+
+<!-- Building GitHub Workflows -->
+[gerrit-to-platform-docs]: https://github.com/lfit/releng-gerrit_to_platform
+[gerrit-to-platform-examples]: https://github.com/lfit/releng-gerrit_to_platform/tree/main/examples/workflows
+[wf-github-vanilla]: https://github.com/lfit/releng-gerrit_to_platform/blob/main/examples/workflows/github-vanilla-verify.yaml
+[wf-gerrit-verify]: https://github.com/lfit/releng-gerrit_to_platform/blob/main/examples/workflows/gerrit-verify.yaml
+[wf-gerrit-manual]: https://github.com/lfit/releng-gerrit_to_platform/blob/main/examples/workflows/gerrit-verify-manual-dispatch.yaml
+[wf-gerrit-merge]: https://github.com/lfit/releng-gerrit_to_platform/blob/main/examples/workflows/gerrit-merge.yaml
