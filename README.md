@@ -38,6 +38,15 @@ organisation unless overridden at the repository level.
   repositories in the organisation against the profile README and sends a
   Slack notification to `#releng-scm` when it finds new repositories
   that lack documentation or an explicit exclusion entry.
+- **[`workflows/zizmor.yaml`](workflows/zizmor.yaml)** — Organisation-wide
+  static security audit of GitHub Actions workflows and composite actions
+  using [zizmor](https://docs.zizmor.sh/). Runs on every pull request and
+  push to `main`/`master`, uploads results to GitHub code scanning as
+  SARIF, and runs in **advisory mode** (does not block merges). The
+  workflow runs across the organisation as a *required workflow* via
+  an organisation ruleset; see [Organisation-wide zizmor
+  audit](#organisation-wide-zizmor-audit) below for the one-time
+  org-admin configuration.
 
 ### Repository Exclusions
 
@@ -60,6 +69,96 @@ repository.
 
 Repositories that need custom categories or version-resolver rules can
 override the defaults by adding their own `.github/release-drafter.yml`.
+
+### Organisation-wide zizmor audit
+
+The `zizmor.yaml` workflow performs static security analysis of GitHub
+Actions workflows and composite actions across every repository in the
+organisation. It uses [zizmor](https://docs.zizmor.sh/), which detects
+common security defects including template-injection vulnerabilities,
+credential persistence (`artipacked`), excessive permission scopes,
+dangerous triggers (`pull_request_target`), unpinned `uses:` references,
+and more.
+
+#### Mode of operation
+
+- **Output**: SARIF, uploaded to GitHub code scanning. Findings appear
+  in each repository's **Security → Code scanning** tab and as inline
+  PR annotations on the offending lines.
+- **Severity floor**: `medium` (the workflow filters out informational
+  and low findings to reduce noise).
+- **Persona**: `regular` (zizmor's default; high-signal, low-noise).
+- **Advisory**: zizmor exits `0` when emitting SARIF, so the workflow
+  always reports success in the PR checks UI. Merge-blocking remains
+  **disabled** at the workflow level on purpose. After the team
+  triages the pre-existing finding backlog across the organisation, an
+  org-level **code-scanning ruleset** can switch selected findings to
+  merge-blocking (see *Promoting findings to merge-blocking* below).
+
+#### One-time org-admin setup
+
+Unlike `release-drafter.yml` (which GitHub auto-inherits from the
+`.github` repository), workflow files in `.github/workflows/` are
+**not** automatically run for other repositories. To execute
+`zizmor.yaml` against every repository in the organisation without
+copying it into each repo, configure it as a *required workflow* via
+an organisation ruleset:
+
+1. Go to **Organisation settings** →
+   [**Repository → Rulesets**](https://github.com/organizations/lfreleng-actions/settings/rules)
+   (you must be an organisation owner).
+2. Click **New ruleset** → **New branch ruleset**.
+3. Set:
+   - **Ruleset name**: `zizmor security audit`
+   - **Enforcement status**: `Active`
+   - **Bypass list**: leave empty
+   - **Target repositories**: `All repositories` (or use *Dynamic list
+     of repositories* with property filters to limit scope; the
+     initial rollout should target *All repositories*).
+   - **Target branches**: `Default branch` (and `master` if you have
+     repositories still using that name; or use `Include by pattern`
+     with `main` and `master`).
+4. Under **Rules**, enable **Require workflows to pass before merging**
+   and click **Add workflow**:
+   - **Repository**: `lfreleng-actions/.github`
+   - **Workflow file path**: `.github/workflows/zizmor.yaml`
+   - **Ref**: `main`
+5. Leave **Do not require workflows to pass before merging** unchecked
+   for now (SARIF output drives the advisory mode, not the ruleset).
+   Switch this to *required* later, after the team clears the backlog.
+6. Click **Create**.
+
+After saving, every pull request opened in the organisation will
+trigger a `zizmor` run sourced from `lfreleng-actions/.github`. The
+checks appear in PRs as `Audit workflows and actions / zizmor`, and
+findings populate the target repository's **Security → Code scanning**
+tab.
+
+#### Updating zizmor
+
+The workflow pins `zizmor` to a specific PyPI version (today
+`1.24.1`) via `uvx --from 'zizmor==1.24.1'`. To upgrade, open a PR
+against this repository updating that pin and let the change ride out
+through the normal review and PR-check process. Pinning protects
+against unintended behaviour changes from upstream releases.
+
+#### Promoting findings to merge-blocking
+
+After the team triages the existing backlog of findings across the
+organisation (auto-fixed via `zizmor --fix`, suppressed via inline
+`# zizmor: ignore[rule]` comments, or addressed in a per-repo
+`zizmor.yml` configuration), a **code-scanning ruleset** can promote
+individual rules — or all rules at a chosen severity — to
+merge-blocking:
+
+1. Organisation settings → Repository → Rulesets → New ruleset →
+   *New code scanning ruleset*.
+2. Add `zizmor` (the SARIF *category*) as a tool, set the alert
+   threshold to `error` (or the desired severity), and target the
+   default branch.
+
+Until an org admin completes that step, `zizmor` operates purely as a
+reporting tool.
 
 ### Repository Audit Workflow
 

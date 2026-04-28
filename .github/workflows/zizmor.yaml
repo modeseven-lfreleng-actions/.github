@@ -1,0 +1,104 @@
+---
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 The Linux Foundation
+
+# Organisation-wide GitHub Actions security audit using zizmor.
+#
+# This workflow lives in the `lfreleng-actions/.github` repository and is
+# intended to be invoked across the organisation as a "required workflow"
+# via an organisation ruleset (Settings → Rules → Rulesets at the org
+# level). When configured this way, GitHub will run this workflow against
+# every pull request in every selected repository in the organisation,
+# without any per-repository file needing to exist.
+#
+# See README.md (section "Organisation-wide zizmor audit") for the
+# one-time org-admin configuration steps.
+#
+# Mode:
+#   - Format: SARIF, uploaded to GitHub code scanning
+#   - Severity: medium and above (informational/low filtered out)
+#   - Persona: regular (default; high-signal, low-noise)
+#   - Advisory: zizmor exits 0 in SARIF mode, so this workflow does NOT
+#     block merges. Code-scanning alerts can be made blocking later via
+#     a code-scanning ruleset once the existing backlog is resolved.
+
+name: '🌈 zizmor — GitHub Actions Security Audit'
+
+# yamllint disable-line rule:truthy
+on:
+  workflow_dispatch: {}
+  pull_request:
+    branches:
+      - main
+      - master
+  push:
+    branches:
+      - main
+      - master
+
+# Default to no permissions; the audit job grants the minimum it needs.
+permissions: {}
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  zizmor:
+    name: 'Audit workflows and actions'
+    runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
+    permissions:
+      # Required for github/codeql-action/upload-sarif to publish results
+      # to the repository's code-scanning alerts.
+      security-events: write
+      # Needed to clone the repository being audited (also required for
+      # private repositories, harmless for public ones).
+      contents: read
+      # Needed for upload-sarif to read workflow run information on
+      # private repositories. Harmless for public repositories.
+      actions: read
+    steps:
+      # Harden the runner used by this workflow.
+      # yamllint disable-line rule:line-length
+      - uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594  # v2.16.0
+        with:
+          egress-policy: 'audit'
+
+      - name: 'Checkout repository under audit'
+        # yamllint disable-line rule:line-length
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: 'Install uv (provides uvx)'
+        # yamllint disable-line rule:line-length
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57  # v8.0.0
+        with:
+          enable-cache: true
+          ignore-empty-workdir: true
+
+      - name: 'Run zizmor (SARIF, advisory)'
+        # zizmor reads GH_TOKEN/GITHUB_TOKEN to enable online audits
+        # (e.g. resolving tag references for unpinned-uses checks).
+        # SARIF output causes zizmor to always exit 0; merge-blocking
+        # is delegated to code-scanning rulesets.
+        env:
+          GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+        run: |
+          set -euo pipefail
+          uvx --from 'zizmor==1.24.1' zizmor \
+            --persona=regular \
+            --min-severity=medium \
+            --format=sarif \
+            . > "${GITHUB_WORKSPACE}/zizmor.sarif"
+
+      - name: 'Upload SARIF to code scanning'
+        # Always upload, even if the audit step failed, so partial
+        # results are not lost.
+        if: always() && hashFiles('zizmor.sarif') != ''
+        # yamllint disable-line rule:line-length
+        uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225  # v4.35.2
+        with:
+          sarif_file: 'zizmor.sarif'
+          category: 'zizmor'
