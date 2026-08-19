@@ -1,0 +1,151 @@
+---
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 The Linux Foundation
+
+# THROWAWAY EXPERIMENT -- DO NOT MERGE UPSTREAM.
+#
+# Determines empirically how harden-runner's 'allowed-endpoints'
+# wildcard matching behaves, because upstream documents neither case:
+#
+#   1. Does '*.host' match a NESTED subdomain ('a.b.host')?
+#   2. Does '*.host' match the APEX ('host')?
+#
+# The answer decides whether
+# .github/harden-runner/lfreleng-actions/allow_list.txt must keep
+# listing nested hosts explicitly alongside their wildcard. It
+# currently does, as belt-and-braces, for azure.archive.ubuntu.com,
+# geo.mirror.pkgbuild.com, mirror.stream.centos.org and
+# subscription.rhsm.redhat.com.
+#
+# Design. Two jobs run an identical probe set under 'egress-policy:
+# block', differing by exactly one allow-list line:
+#
+#   wildcard-only    '*.ubuntu.com' alone
+#   explicit-nested  '*.ubuntu.com' PLUS azure.archive.ubuntu.com:80
+#
+# Comparing the two isolates the wildcard from mirror availability. If
+# the nested probe fails in the first job but succeeds in the second,
+# the wildcard is what blocked it rather than a mirror outage -- which
+# matters, because an unreachable Azure mirror is exactly what
+# triggered this whole line of work.
+#
+# Each job also runs a positive control (single-label subdomain,
+# expected to pass) and a negative control (host absent from the
+# allow-list, expected to fail). Without the negative control, a run
+# where everything passes would be unreadable: it could mean nested
+# matching works, or that blocking never engaged at all.
+#
+# NOTE: 'egress-policy: audit' CANNOT answer this. Audit mode does not
+# enforce allowed-endpoints -- every connection succeeds and is merely
+# reported. Block mode is required.
+#
+# The allow-list below is inline ON PURPOSE. Loading the shared
+# organisation allow-list via harden-runner-block-action would defeat
+# the experiment, because that file lists azure.archive.ubuntu.com:80
+# explicitly.
+
+name: 'Harden-runner wildcard probe 🔬'
+
+# yamllint disable-line rule:truthy
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: 'wildcard-probe-${{ github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: 'Probe (${{ matrix.case }})'
+    runs-on: 'ubuntu-latest'
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: 'wildcard-only'
+            extra_endpoint: ''
+          - case: 'explicit-nested'
+            extra_endpoint: 'azure.archive.ubuntu.com:80'
+    steps:
+      # The first five endpoints keep the job itself alive; the
+      # ubuntu.com lines are the controlled variable. Note the
+      # deliberate absence of any apex 'ubuntu.com' entry.
+      - name: 'Harden runner (block)'
+        # yamllint disable-line rule:line-length
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40  # v2.20.1
+        with:
+          egress-policy: 'block'
+          allowed-endpoints: >
+            prod.app-api.stepsecurity.io:443
+            github.com:443
+            api.github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            *.ubuntu.com:443
+            *.ubuntu.com:80
+            ${{ matrix.case == 'explicit-nested'
+                && 'azure.archive.ubuntu.com:80' || '' }}
+
+      - name: 'Probe endpoints'
+        env:
+          PROBE_CASE: '${{ matrix.case }}'
+        run: |
+          probe() {
+            probe_name="$1"
+            probe_url="$2"
+            probe_expect="$3"
+
+            set +e
+            http_code="$(curl -sS -o /dev/null --max-time 20 \
+              -w '%{http_code}' "$probe_url" 2>/dev/null)"
+            curl_rc=$?
+            set -e
+
+            if [ "$curl_rc" -eq 0 ]; then
+              outcome='ALLOWED'
+            else
+              outcome='BLOCKED'
+            fi
+
+            echo "::group::${probe_name} -> ${outcome}"
+            echo "url=${probe_url}"
+            echo "curl_exit=${curl_rc} http_code=${http_code:-none}"
+            echo "expected=${probe_expect}"
+            echo "::endgroup::"
+
+            printf '| %s | %s | %s | **%s** | %s |\n' \
+              "$probe_name" "$probe_url" "$curl_rc" \
+              "$outcome" "$probe_expect" >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          {
+            echo "### Probe results - case: ${PROBE_CASE}"
+            echo
+            echo "| Probe | URL | curl exit | Outcome | Expected |"
+            echo "| --- | --- | --- | --- | --- |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          probe 'Positive control (single label)' \
+            'https://archive.ubuntu.com/ubuntu/' 'ALLOWED'
+
+          probe 'NESTED subdomain (question 1)' \
+            'http://azure.archive.ubuntu.com/ubuntu/' 'unknown'
+
+          probe 'APEX domain (question 2)' \
+            'https://ubuntu.com/' 'unknown'
+
+          probe 'Negative control (not listed)' \
+            'https://example.com/' 'BLOCKED'
+
+          printf '\n' >> "$GITHUB_STEP_SUMMARY"
+
+          echo 'Interpretation: the run is only readable if the'
+          echo 'positive control is ALLOWED and the negative control'
+          echo 'is BLOCKED. If so, compare the NESTED row across the'
+          echo 'two matrix cases.'
