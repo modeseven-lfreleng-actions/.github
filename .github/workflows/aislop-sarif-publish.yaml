@@ -57,7 +57,7 @@ on:
         default: ''
       repo:
         # yamllint disable-line rule:line-length
-        description: 'Scan only this repository (name only) if in scope; blank scans all'
+        description: 'Scan only these repositories (names only, comma or space separated) if in scope; blank scans all'
         required: false
         default: ''
       token:
@@ -85,7 +85,7 @@ jobs:
     name: 'Discover repositories'
     permissions:
       contents: read
-    uses: './.github/workflows/repo-discovery.yaml'
+    uses: '$/.github/workflows/repo-discovery.yaml'
     with:
       org: '${{ inputs.org || github.repository_owner }}'
       only-repo: '${{ inputs.repo }}'
@@ -115,13 +115,13 @@ jobs:
       # Load the egress allow-list out-of-band from lfreleng-actions/.github
       # and publish it as $CONNECTION_ALLOW_LIST for the harden-runner step.
       # yamllint disable-line rule:line-length
-      - uses: lfreleng-actions/harden-runner-block-action@6db537b3e6d060c3287c5a3ce2c28b55b0af330d  # v0.2.1
+      - uses: lfreleng-actions/harden-runner-block-action@a32eb064a1188f6b0f15d2c0c0381efe54b0dd22  # v0.12.2
         with:
           config: '@8f4f0cf83e6a015957e83261ed379fd811fc060e'  # v0.5.1
 
       - name: 'Harden runner (block)'
         # yamllint disable-line rule:line-length
-        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40  # v2.20.1
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1  # v2.21.1
         with:
           egress-policy: 'block'
           allowed-endpoints: >
@@ -147,7 +147,7 @@ jobs:
       - name: 'Run aislop scan (full repository)'
         id: 'scan'
         # yamllint disable-line rule:line-length
-        uses: lfreleng-actions/aislop-scan-action@4004a907f2894763ff1f9fc904b2f7b4b7a7cc40  # v0.2.7
+        uses: lfreleng-actions/aislop-scan-action@2d0c48a326538bda2b602beab36784d517ea30e8  # v0.3.2
         with:
           scan-mode: 'full'
           # This workflow publishes results, it does not gate: the
@@ -166,6 +166,7 @@ jobs:
         env:
           REPO: '${{ matrix.repo }}'
           REPORT_FILE: '${{ steps.scan.outputs.report-file }}'
+          ENGINES_READY: '${{ steps.scan.outputs.engines-ready }}'
         run: |
           # Write score metrics for aggregation
           set -euo pipefail
@@ -176,11 +177,32 @@ jobs:
           # and the aggregation job's *.json glob skips dotfiles, so
           # an unprefixed metrics file silently drops the repository
           # from the organisation score table.
-          jq -c --arg repo "${REPO}" \
+          #
+          # 'advisory' counts aislop's coverage notices: an audit or
+          # analyzer that could not run (typically npm audit timing
+          # out against the registry). A missing engine binary is the
+          # same kind of gap. Both mean the score is inflated and the
+          # row is not comparable with a fully covered one, so the
+          # table flags it and the summary counts how many
+          # repositories scanned with reduced coverage that day. The
+          # rule list mirrors COVERAGE_RULES in aislop-scan-action's
+          # .github/scripts/aislop_coverage.py.
+          engines='true'
+          if [ "${ENGINES_READY:-true}" != 'true' ]; then
+            engines='false'
+          fi
+          jq -c --arg repo "${REPO}" --argjson engines "${engines}" \
+            --argjson notice '["security/dependency-audit-skipped",
+                               "dotnet/projects-skipped",
+                               "cppcheck/chunks-skipped"]' \
             '{repo: $repo, score: .score, label: .label,
               scoreable: .scoreable, errors: .summary.errors,
               warnings: .summary.warnings, fixable: .summary.fixable,
-              files: .summary.files}' \
+              files: .summary.files,
+              advisory: ([.diagnostics[]?
+                          | select(.rule as $r | $notice | index($r))]
+                         | length),
+              engines_ready: $engines}' \
             "${REPORT_FILE}" \
             > "${RUNNER_TEMP}/aislop-metrics/metrics-${REPO}.json"
 
@@ -303,13 +325,13 @@ jobs:
       # Load the egress allow-list out-of-band from lfreleng-actions/.github
       # and publish it as $CONNECTION_ALLOW_LIST for the harden-runner step.
       # yamllint disable-line rule:line-length
-      - uses: lfreleng-actions/harden-runner-block-action@6db537b3e6d060c3287c5a3ce2c28b55b0af330d  # v0.2.1
+      - uses: lfreleng-actions/harden-runner-block-action@a32eb064a1188f6b0f15d2c0c0381efe54b0dd22  # v0.12.2
         with:
           config: '@8f4f0cf83e6a015957e83261ed379fd811fc060e'  # v0.5.1
 
       - name: 'Harden runner (block)'
         # yamllint disable-line rule:line-length
-        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40  # v2.20.1
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1  # v2.21.1
         with:
           egress-policy: 'block'
           allowed-endpoints: >
@@ -340,14 +362,35 @@ jobs:
               'reported metrics.'
             echo
             if [ "${#files[@]}" -gt 0 ]; then
+              # Reduced coverage is an infrastructure signal (registry
+              # load, egress), not a property of the repository. Count
+              # it up front so a bad day at the registry reads as one
+              # rather than as a wave of newly clean repositories.
+              degraded="$(jq -s '[.[] | select(.advisory > 0
+                                           or .engines_ready == false)]
+                                | length' "${files[@]}")"
+              if [ "${degraded}" != '0' ]; then
+                echo "⚠️ ${degraded} repositories scanned with reduced" \
+                  'coverage (an audit or analyzer could not run); their' \
+                  'scores may be inflated and are not comparable with' \
+                  'the rest. Typically the npm registry advisory' \
+                  'endpoint timing out. See the Coverage column.'
+                echo
+              fi
               echo '| Repository | Score | Label | Errors' \
-                '| Warnings | Fixable | Files |'
-              echo '| --- | ---: | --- | ---: | ---: | ---: | ---: |'
+                '| Warnings | Fixable | Files | Coverage |'
+              echo '| --- | ---: | --- | ---: | ---: | ---: | ---: | --- |'
               # Rank worst-first; unscoreable repositories sort last.
               jq -r -s 'sort_by(.score // 999)[]
                 | "| \(.repo) | \(.score // "-") | \(.label // "-")"
                   + " | \(.errors) | \(.warnings) | \(.fixable)"
-                  + " | \(.files) |"' "${files[@]}"
+                  + " | \(.files) | "
+                  + (if .engines_ready == false
+                     then "⚠️ reduced (engines missing)"
+                     elif (.advisory // 0) > 0
+                     then "⚠️ reduced (\(.advisory) notice(s))"
+                     else "full" end)
+                  + " |"' "${files[@]}"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -379,13 +422,13 @@ jobs:
       # The pinned allow-list permits slack.com, so the notification below
       # reaches Slack under the block egress policy.
       # yamllint disable-line rule:line-length
-      - uses: lfreleng-actions/harden-runner-block-action@6db537b3e6d060c3287c5a3ce2c28b55b0af330d  # v0.2.1
+      - uses: lfreleng-actions/harden-runner-block-action@a32eb064a1188f6b0f15d2c0c0381efe54b0dd22  # v0.12.2
         with:
           config: '@8f4f0cf83e6a015957e83261ed379fd811fc060e'  # v0.5.1
 
       - name: 'Harden runner (block)'
         # yamllint disable-line rule:line-length
-        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40  # v2.20.1
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1  # v2.21.1
         with:
           egress-policy: 'block'
           allowed-endpoints: >

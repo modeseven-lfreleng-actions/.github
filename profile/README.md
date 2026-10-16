@@ -21,28 +21,34 @@ with signed tags and provenance attestations.
 
 <!-- markdownlint-disable MD013 -->
 
-| Action                        | Description                                                   |
-| ----------------------------- | ------------------------------------------------------------- |
-| [python-build-action]         | Build a Python project                                        |
-| [python-test-action]          | Test a Python project and generate coverage reports           |
-| [python-audit-action]         | Audit Python dependencies for known security vulnerabilities  |
-| [python-twine-check-action]   | Verify Python build artefacts with Twine before publishing    |
-| [python-notebook-test-action] | Check Jupyter Notebooks with pytest and nbmake                |
-| [python-sbom-action]          | Generate CycloneDX SBOM reports for Python projects           |
-| [tox-run-action]              | Run tox with specified Python version and environments        |
-| [gradle-build-action]         | Set up a specific JDK version and run a Gradle build          |
-| [maven-build-action]          | Set up Maven and build a Java project                         |
-| [maven-make-build-action]     | Set up Maven and run make                                     |
-| [maven-xml-settings-action]   | Create Maven XML settings files for build and publish jobs    |
-| [junit-test-report-action]    | Summarise JUnit XML test results in the workflow job summary  |
-| [node-build-action]           | Set up Node.js and build a project with npm or yarn           |
-| [node-audit-action]           | Audit Node.js dependencies for known security vulnerabilities |
-| [go-build-action]             | Build a Go project with optional cross-compilation support    |
-| [go-test-action]              | Run Go tests with coverage and race detection support         |
-| [go-audit-action]             | Audit a Go project with govulncheck, gosec, and staticcheck   |
-| [sbom-action]                 | Generate CycloneDX SBOM reports for any language ecosystem    |
-| [make-action]                 | Execute the steps described in a Makefile                     |
-| [rtd-build-action]            | Build and publish Read the Docs documentation                 |
+| Action                        | Description                                                      |
+| ----------------------------- | ---------------------------------------------------------------- |
+| [python-build-action]         | Build a Python project                                           |
+| [python-test-action]          | Test a Python project and generate coverage reports              |
+| [python-audit-action]         | Audit Python dependencies for known security vulnerabilities     |
+| [python-twine-check-action]   | Verify Python build artefacts with Twine before publishing       |
+| [python-notebook-test-action] | Check Jupyter Notebooks with pytest and nbmake                   |
+| [python-sbom-action]          | Generate CycloneDX SBOM reports for Python projects              |
+| [tox-run-action]              | Run tox with specified Python version and environments           |
+| [gradle-build-action]         | Set up a specific JDK version and run a Gradle build             |
+| [maven-build-action]          | Set up Maven and build a Java project                            |
+| [maven-make-build-action]     | Set up Maven and run make                                        |
+| [maven-xml-settings-action]   | Create Maven XML settings files for build and publish jobs       |
+| [junit-test-report-action]    | Summarise JUnit XML test results in the workflow job summary     |
+| [node-build-action]           | Set up Node.js and build a project with npm or yarn              |
+| [node-audit-action]           | Audit Node.js dependencies for known security vulnerabilities    |
+| [go-build-action]             | Build a Go project with optional cross-compilation support       |
+| [go-test-action]              | Run Go tests with coverage and race detection support            |
+| [go-audit-action]             | Audit a Go project with govulncheck, gosec, and staticcheck      |
+| [rust-build-action]           | Build a Rust project with Cargo                                  |
+| [rust-test-action]            | Test a Rust project and generate coverage reports                |
+| [rust-audit-action]           | Audit Rust dependencies for known security vulnerabilities       |
+| [docker-build-matrix-action]  | Resolve Docker images to build, with their names and build order |
+| [docker-build-images-action]  | Build Docker images in order, then load or push them             |
+| [sbom-action]                 | Generate CycloneDX SBOM reports for any language ecosystem       |
+| [cbom-action]                 | Generate CycloneDX Cryptography Bill of Materials (CBOM) reports |
+| [make-action]                 | Execute the steps described in a Makefile                        |
+| [rtd-build-action]            | Build and publish Read the Docs documentation                    |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -50,21 +56,25 @@ with signed tags and provenance attestations.
 
 <!-- markdownlint-disable MD013 -->
 
-| Action                         | Description                                                 |
-| ------------------------------ | ----------------------------------------------------------- |
-| [pypi-publish-action]          | Publish a Python project to PyPI                            |
-| [pypi-version-check-action]    | Check PyPI for a given package and optional build/release   |
-| [draft-release-promote-action] | Promote a draft GitHub release to a full release            |
-| [release-assets-action]        | Upload build artefacts and assets to a GitHub release       |
-| [nexus-publish-action]         | Publish content to Sonatype Nexus Repository servers        |
-| [nexus-docker-login-action]    | Docker login for all registries in Nexus3 and DockerHub     |
-| [helm-chart-publish-action]    | Publish Helm Charts to an OCI container repository          |
-| [chartmuseum-action]           | Start and run a ChartMuseum Helm Chart repository           |
-| [central-publish-action]       | Publish Maven artefacts to the Maven Central Portal         |
-| [maven-stage-prep-action]      | Prepare a Maven project for a staging release               |
-| [nexus-staging-action]         | Manage the Sonatype Nexus staging repository lifecycle      |
-| [node-create-npmrc-action]     | Create an NPM configuration file containing credentials     |
-| [node-publish-action]          | Stamp a version and publish a Node.js package to a registry |
+| Action                           | Description                                                 |
+| -------------------------------- | ----------------------------------------------------------- |
+| [pypi-publish-action]            | Publish a Python project to PyPI                            |
+| [pypi-version-check-action]      | Check PyPI for a given package and optional build/release   |
+| [draft-release-promote-action]   | Promote a draft GitHub release to a full release            |
+| [release-assets-action]          | Upload build artefacts and assets to a GitHub release       |
+| [nexus-publish-action]           | Publish content to Sonatype Nexus Repository servers        |
+| [nexus-docker-login-action]      | Docker login for all registries in Nexus3 and DockerHub     |
+| [docker-release-detect-action]   | Parse merged container release files into a promotion plan  |
+| [docker-promote-action]          | Copy staged Docker images to release tags without a rebuild |
+| [helm-chart-publish-action]      | Publish Helm Charts to an OCI container repository          |
+| [chartmuseum-action]             | Start and run a ChartMuseum Helm Chart repository           |
+| [central-publish-action]         | Publish Maven artefacts to the Maven Central Portal         |
+| [maven-stage-prep-action]        | Prepare a Maven project for a staging release               |
+| [maven-snapshot-metadata-action] | Seed and prune Maven SNAPSHOT metadata in Nexus             |
+| [nexus-staging-action]           | Manage the Sonatype Nexus staging repository lifecycle      |
+| [node-create-npmrc-action]       | Create an NPM configuration file containing credentials     |
+| [node-publish-action]            | Stamp a version and publish a Node.js package to a registry |
+| [rust-crate-publish-action]      | Package, verify, and publish a Rust crate to crates.io      |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -135,8 +145,10 @@ with signed tags and provenance attestations.
 | -------------------------------- | ----------------------------------------------------------------------- |
 | [1password-secrets-action]       | Securely retrieve secrets from 1Password vaults                         |
 | [credential-load-action]         | Retrieve project/repository specific credentials from a 1Password vault |
+| [grype-scan-action]              | Scan SBOMs, images, or directories for vulnerabilities with Grype       |
 | [harden-runner-block-action]     | Load an egress allow-list for step-security/harden-runner block mode    |
-| [sigul-sign-docker]              | Sign build packages, artefacts, and git tags using Sigul                |
+| [sigul-docker-k8s]               | Sigul containers and Helm Charts to perform cryptographic signing       |
+| [sigul-sign-action]              | Perform code signing operations against a remote Sigul server           |
 | [sonarqube-cloud-scan-action]    | Perform a SonarQube Cloud scan and upload the results                   |
 | [sonatype-lifecycle-scan-action] | Run a Sonatype Lifecycle (Nexus IQ) scan                                |
 | [zizmor-scan-action]             | Audit GitHub Actions workflows for security defects with zizmor         |
@@ -160,6 +172,7 @@ with signed tags and provenance attestations.
 | [change-isolation-action]          | Verify a change isolates edits to gitignore-style path patterns     |
 | [aislop-scan-action]               | Scan a repository with the aislop AI-slop/code-quality scanner      |
 | [rtd-config-audit-action]          | Audit and verify Read the Docs configuration files                  |
+| [info-yaml-validate-action]        | Validate INFO.yaml files and verify the repositories they declare   |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -176,6 +189,7 @@ with signed tags and provenance attestations.
 | [file-grep-regex-action]       | Extract a string from a file using grep and a regular expression   |
 | [file-sed-regex-action]        | Perform string substitutions in a file using sed                   |
 | [json-key-value-lookup-action] | Look up a value in a JSON key/value table                          |
+| [vars-to-env-action]           | Export GitHub variables or secrets as job environment variables    |
 | [url-download-action]          | Download content from a URL using wget                             |
 | [url-validity-action]          | Check a URL for a valid server response                            |
 | [verify-release-schema-action] | Verify release file contents against an approved schema            |
@@ -213,11 +227,28 @@ configurations that projects can call directly:
 | [go-workflows]         | Reusable build, test, and release workflows for Go projects             |
 | [node-workflows]       | Reusable build, test, audit, and release workflows for Node.js projects |
 | [java-workflows]       | Reusable build, test, and release workflows for Java projects           |
+| [rust-workflows]       | Reusable build, test, and release workflows for Rust projects           |
 | [docker-workflows]     | Reusable build and publish workflows for Docker container images        |
 | [generic-workflows]    | Language-agnostic reusable workflows, including tag-driven release      |
 | [security-workflows]   | Security and code auditing focussed reusable workflows                  |
 | [docs-workflows]       | Reusable documentation verify, build, and publish workflows             |
-| [github-issues-triage] | Reusable AI triage workflow that labels open GitHub issues              |
+
+<!-- markdownlint-enable MD013 -->
+
+## 🤖 Bots
+
+These repositories run scheduled AI agents across the organisation.
+Each is a reusable workflow built from [bots-template]: an untrusted
+job runs a Copilot CLI agent session, and only a trusted job, acting
+as a dedicated GitHub App, writes to GitHub.
+
+<!-- markdownlint-disable MD013 -->
+
+| Bot                        | Description                                                    |
+| -------------------------- | -------------------------------------------------------------- |
+| [github-issues-triage-bot] | Triage open GitHub issues, setting labels, priority, and type  |
+| [github-code-monkey-bot]   | Raise pull requests addressing open issues with Copilot        |
+| [github-code-review-bot]   | Review pull requests with Copilot and approve low-risk changes |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -231,9 +262,12 @@ verify the actions and workflows in this organisation:
 | Repository                     | Purpose                                                |
 | ------------------------------ | ------------------------------------------------------ |
 | [test-python-project]          | Sample Python project (Typer CLI)                      |
+| [test-python-submodules]       | Frozen Python fixture with nested git submodules       |
 | [test-go-project]              | Sample Go project (calculator CLI)                     |
 | [test-node-project]            | Sample Node.js project (Express HTTP server)           |
 | [test-maven-project]           | Sample Maven project used for testing actions          |
+| [test-gradle-project]          | Sample Gradle project used for testing actions         |
+| [test-rust-project]            | Sample Rust project used for testing actions           |
 | [test-docker-project]          | Sample project that builds a Docker image              |
 | [test-docker-monorepo]         | Multi-image Docker monorepo with same-repo FROM chains |
 | [test-makefile-helm-chart]     | Template Makefile for building a sample Helm Chart     |
@@ -253,6 +287,7 @@ verify the actions and workflows in this organisation:
 | --------------------------- | ------------------------------------------------------------------------------------------------------ |
 | [actions-template]          | Template repository for creating new GitHub Actions                                                    |
 | [workflows-template]        | Template repository for creating reusable workflow repositories                                        |
+| [bots-template]             | Template repository for creating Copilot-driven GitHub bots                                            |
 | [.github]                   | Organisation-wide configuration (default community health files, shared release-drafter configuration) |
 | [releng-reusable-workflows] | Shared/common workflows leveraging these actions (hosted in the [lfit](https://github.com/lfit) org)   |
 
@@ -395,7 +430,13 @@ to all repositories unless otherwise stated.
 [go-build-action]: https://github.com/lfreleng-actions/go-build-action
 [go-test-action]: https://github.com/lfreleng-actions/go-test-action
 [go-audit-action]: https://github.com/lfreleng-actions/go-audit-action
+[rust-build-action]: https://github.com/lfreleng-actions/rust-build-action
+[rust-test-action]: https://github.com/lfreleng-actions/rust-test-action
+[rust-audit-action]: https://github.com/lfreleng-actions/rust-audit-action
+[docker-build-matrix-action]: https://github.com/lfreleng-actions/docker-build-matrix-action
+[docker-build-images-action]: https://github.com/lfreleng-actions/docker-build-images-action
 [sbom-action]: https://github.com/lfreleng-actions/sbom-action
+[cbom-action]: https://github.com/lfreleng-actions/cbom-action
 [make-action]: https://github.com/lfreleng-actions/make-action
 [rtd-build-action]: https://github.com/lfreleng-actions/rtd-build-action
 
@@ -406,13 +447,17 @@ to all repositories unless otherwise stated.
 [release-assets-action]: https://github.com/lfreleng-actions/release-assets-action
 [nexus-publish-action]: https://github.com/lfreleng-actions/nexus-publish-action
 [nexus-docker-login-action]: https://github.com/lfreleng-actions/nexus-docker-login-action
+[docker-release-detect-action]: https://github.com/lfreleng-actions/docker-release-detect-action
+[docker-promote-action]: https://github.com/lfreleng-actions/docker-promote-action
 [helm-chart-publish-action]: https://github.com/lfreleng-actions/helm-chart-publish-action
 [chartmuseum-action]: https://github.com/lfreleng-actions/chartmuseum-action
 [central-publish-action]: https://github.com/lfreleng-actions/central-publish-action
 [maven-stage-prep-action]: https://github.com/lfreleng-actions/maven-stage-prep-action
+[maven-snapshot-metadata-action]: https://github.com/lfreleng-actions/maven-snapshot-metadata-action
 [nexus-staging-action]: https://github.com/lfreleng-actions/nexus-staging-action
 [node-create-npmrc-action]: https://github.com/lfreleng-actions/node-create-npmrc-action
 [node-publish-action]: https://github.com/lfreleng-actions/node-publish-action
+[rust-crate-publish-action]: https://github.com/lfreleng-actions/rust-crate-publish-action
 
 <!-- Cloud & Infrastructure Actions -->
 [packer-build-action]: https://github.com/lfreleng-actions/packer-build-action
@@ -448,8 +493,10 @@ to all repositories unless otherwise stated.
 <!-- Security & Credentials Actions -->
 [1password-secrets-action]: https://github.com/lfreleng-actions/1password-secrets-action
 [credential-load-action]: https://github.com/lfreleng-actions/credential-load-action
+[grype-scan-action]: https://github.com/lfreleng-actions/grype-scan-action
 [harden-runner-block-action]: https://github.com/lfreleng-actions/harden-runner-block-action
-[sigul-sign-docker]: https://github.com/lfreleng-actions/sigul-sign-docker
+[sigul-docker-k8s]: https://github.com/lfreleng-actions/sigul-docker-k8s
+[sigul-sign-action]: https://github.com/lfreleng-actions/sigul-sign-action
 [sonarqube-cloud-scan-action]: https://github.com/lfreleng-actions/sonarqube-cloud-scan-action
 [sonatype-lifecycle-scan-action]: https://github.com/lfreleng-actions/sonatype-lifecycle-scan-action
 [zizmor-scan-action]: https://github.com/lfreleng-actions/zizmor-scan-action
@@ -466,6 +513,7 @@ to all repositories unless otherwise stated.
 [change-isolation-action]: https://github.com/lfreleng-actions/change-isolation-action
 [aislop-scan-action]: https://github.com/lfreleng-actions/aislop-scan-action
 [rtd-config-audit-action]: https://github.com/lfreleng-actions/rtd-config-audit-action
+[info-yaml-validate-action]: https://github.com/lfreleng-actions/info-yaml-validate-action
 
 <!-- Utility Actions -->
 [git-configure-action]: https://github.com/lfreleng-actions/git-configure-action
@@ -475,6 +523,7 @@ to all repositories unless otherwise stated.
 [file-grep-regex-action]: https://github.com/lfreleng-actions/file-grep-regex-action
 [file-sed-regex-action]: https://github.com/lfreleng-actions/file-sed-regex-action
 [json-key-value-lookup-action]: https://github.com/lfreleng-actions/json-key-value-lookup-action
+[vars-to-env-action]: https://github.com/lfreleng-actions/vars-to-env-action
 [url-download-action]: https://github.com/lfreleng-actions/url-download-action
 [url-validity-action]: https://github.com/lfreleng-actions/url-validity-action
 [verify-release-schema-action]: https://github.com/lfreleng-actions/verify-release-schema-action
@@ -495,17 +544,25 @@ to all repositories unless otherwise stated.
 [go-workflows]: https://github.com/lfreleng-actions/go-workflows
 [node-workflows]: https://github.com/lfreleng-actions/node-workflows
 [java-workflows]: https://github.com/lfreleng-actions/java-workflows
+[rust-workflows]: https://github.com/lfreleng-actions/rust-workflows
 [docker-workflows]: https://github.com/lfreleng-actions/docker-workflows
 [generic-workflows]: https://github.com/lfreleng-actions/generic-workflows
 [security-workflows]: https://github.com/lfreleng-actions/security-workflows
 [docs-workflows]: https://github.com/lfreleng-actions/docs-workflows
-[github-issues-triage]: https://github.com/lfreleng-actions/github-issues-triage
+
+<!-- Bots -->
+[github-issues-triage-bot]: https://github.com/lfreleng-actions/github-issues-triage-bot
+[github-code-monkey-bot]: https://github.com/lfreleng-actions/github-code-monkey-bot
+[github-code-review-bot]: https://github.com/lfreleng-actions/github-code-review-bot
 
 <!-- Test Fixtures & Sample Projects -->
 [test-python-project]: https://github.com/lfreleng-actions/test-python-project
+[test-python-submodules]: https://github.com/lfreleng-actions/test-python-submodules
 [test-go-project]: https://github.com/lfreleng-actions/test-go-project
 [test-node-project]: https://github.com/lfreleng-actions/test-node-project
 [test-maven-project]: https://github.com/lfreleng-actions/test-maven-project
+[test-gradle-project]: https://github.com/lfreleng-actions/test-gradle-project
+[test-rust-project]: https://github.com/lfreleng-actions/test-rust-project
 [test-docker-project]: https://github.com/lfreleng-actions/test-docker-project
 [test-docker-monorepo]: https://github.com/lfreleng-actions/test-docker-monorepo
 [test-makefile-helm-chart]: https://github.com/lfreleng-actions/test-makefile-helm-chart
@@ -518,6 +575,7 @@ to all repositories unless otherwise stated.
 <!-- Organisation Resources -->
 [actions-template]: https://github.com/lfreleng-actions/actions-template
 [workflows-template]: https://github.com/lfreleng-actions/workflows-template
+[bots-template]: https://github.com/lfreleng-actions/bots-template
 [.github]: https://github.com/lfreleng-actions/.github
 [releng-reusable-workflows]: https://github.com/lfit/releng-reusable-workflows
 

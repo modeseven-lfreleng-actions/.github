@@ -9,10 +9,34 @@ This repository contains shared configuration and community health files
 for the [lfreleng-actions](https://github.com/lfreleng-actions) GitHub
 organisation (Linux Foundation Release Engineering).
 
-Files placed here are automatically inherited by all repositories in the
-organisation unless overridden at the repository level.
+Community health files placed here are automatically inherited by all
+repositories in the organisation unless overridden at the repository
+level. Each entry below says how the rest reach repositories.
 
 ## Contents
+
+### Contributor Guidance
+
+- **[`AGENTS.md`](AGENTS.md)** — The default guidance document for AI
+  coding agents working on any repository in the organisation. Covers
+  commit format, signing and DCO, pre-commit hooks, testing gates, and
+  pull request review cycles. It binds every contribution, including
+  those from third parties and the agents acting on their behalf, even
+  when the agent that produced it never read the file.
+
+  Each repository carries a thin `AGENTS.md` that points here, in the
+  shape §12 of that document defines; a stub may add requirements, but
+  cannot relax these.
+- **[`scripts/agents/`](scripts/agents/)** — Reference implementations
+  of the three `AGENTS.md` rules that are contracts with exit
+  semantics: the AI-slop gate (`aislop-gate.sh`), the Change-Id
+  preserving Gerrit amend (`gerrit-amend.sh`), and review-thread
+  resolution (`resolve-review-thread.sh`). Each has a pytest suite
+  under `scripts/agents/tests/` covering the false-pass cases review
+  has found; the tests define what "correct" means, and agents in
+  other repositories may run, vendor or reimplement the scripts against
+  them. `agent-scripts.yaml` runs the suite on every pull request that
+  touches them.
 
 ### Organisation Profile
 
@@ -44,10 +68,19 @@ organisation unless overridden at the repository level.
 - **[`allow-list-bump.yaml`](.github/workflows/allow-list-bump.yaml)** —
   A scheduled (Monday 05:00 UTC) sweep that bumps stale
   `step-security/harden-runner` egress allow-list pins across the
-  `*-workflows` family and opens a pull request per repository. These
-  pins are values of `config:` and `default:` keys rather than `uses:`
-  references, so Dependabot cannot see them and they drift. See
+  `*-workflows` family and opens a pull request per repository, authored
+  by the organisation's bot. These pins are values of `config:` and
+  `default:` keys rather than `uses:` references, so Dependabot cannot
+  see them and they drift. See
   [Allow-list bump sweep](#allow-list-bump-sweep) below for setup.
+- **[`allow-list-dns-check.yaml`](.github/workflows/allow-list-dns-check.yaml)**
+  — A scheduled (daily, 04:30 UTC) check that every non-wildcard
+  hostname in the harden-runner egress allow-list still resolves, on
+  the default branch and at the latest release. harden-runner fails
+  open when any such entry fails to resolve (it never pre-resolves
+  wildcards, so neither does the check), so the workflow posts the
+  offending records to `#releng-scm` for removal or correction. A
+  manual run can send a test message to verify the Slack wiring.
 - **[`repo-audit.yaml`](.github/workflows/repo-audit.yaml)** — Runs on
   a weekly schedule (Monday 10:00 UTC). Compares the current list of
   repositories in the organisation against the profile README and sends a
@@ -75,10 +108,9 @@ organisation unless overridden at the repository level.
   [aislop](https://github.com/scanaislop/aislop). Runs on every pull
   request across the organisation as a *required workflow* via an
   organisation ruleset, scans **the files the PR changes** (not the
-  whole repository), and
-  runs in **advisory mode** (never fails) until an org admin sets the
-  `AISLOP_ENFORCE`
-  organisation variable to `true`; see
+  whole repository), and **blocks** a pull request whose changed files
+  carry any finding, at any severity. The `AISLOP_GATE_LEVEL`
+  organisation or repository variable relaxes or tightens that; see
   [Organisation-wide aislop scan](#organisation-wide-aislop-scan) below
   for the one-time org-admin configuration.
 - **[`aislop-sarif-publish.yaml`](.github/workflows/aislop-sarif-publish.yaml)**
@@ -89,6 +121,9 @@ organisation unless overridden at the repository level.
   attention are easy to spot. See
   [Organisation-wide aislop SARIF publisher](#organisation-wide-aislop-sarif-publisher)
   below for setup.
+- **[`agent-scripts.yaml`](.github/workflows/agent-scripts.yaml)** —
+  Runs the contract tests for the `AGENTS.md` reference scripts under
+  `scripts/agents/` on every pull request that touches them.
 
 ### Repository Exclusions
 
@@ -342,12 +377,16 @@ optional inputs (all blank by default):
   matches the scheduled run. The workflow reads that organisation's scope
   policy from `.github/scan-scope.json`; an organisation with no
   entry falls back to the default toggles and the scan variables alone.
-- **`repo`** — scan a single named repository (for smoke-testing). The
-  scope policy still applies, so the workflow produces an empty matrix —
-  publishing nothing — for any repository that the toggles or scope policy
-  remove (a skipped category such as archived, fork, template, private or
+- **`repo`** — restrict the run to the named repositories, for
+  smoke-testing or to refresh results for a batch of new repositories.
+  Give bare names, separated by commas or spaces
+  (`repo-a, repo-b repo-c`). The run fails, naming each culprit, when an
+  entry is not a bare repository name or the API cannot read the
+  repository. The scope policy still applies: the workflow drops, with a
+  warning, any named repository that the toggles or scope policy remove
+  (a skipped category such as archived, fork, template, private or
   disabled, an `exclude` match, or a repository outside a configured
-  `include` allow-list).
+  `include` allow-list), and publishes nothing when that leaves none.
 - **`token`** — override the `ZIZMOR_SARIF_PAT` secret for an ad-hoc run.
   When blank, the workflow uses the secret. **Caution:** GitHub stores and
   shows `workflow_dispatch` inputs in the run parameters without masking
@@ -384,20 +423,45 @@ files 0–100 and reports each finding with severity and location.
 - **Gating**: the scan step always succeeds; a separate gate step
   decides enforcement based on the organisation variable
   **`AISLOP_GATE_LEVEL`**:
-  - **`high`** (the default when the variable is unset) — the run
-    **fails** when the pull request introduces any **high-severity**
-    finding (an aislop error-severity diagnostic, the `high` rating
-    surfaced in code scanning). Warnings and info stay advisory. This
-    is the estate-wide gate now that the estate carries no outstanding
-    high-severity findings.
+  - **`any`** (the default when the variable is unset) — the run
+    **fails** when the changed files carry **any finding, at any
+    severity**: high, medium and low all block. Because the scan
+    scope is the pull request's changed files, passing this gate
+    means the pull request adds no findings.
+  - **`high`** — the run fails on **high-severity** findings alone (an
+    aislop error-severity diagnostic). Medium and low stay advisory.
+    This was the previous default; use it as a per-repository escape
+    hatch while clearing an existing backlog.
   - **`all`** — the run fails on the full aislop quality gate (score
     below the configured threshold **or** any high-severity finding).
-    The strictest tier.
   - **`off`** — advisory: the workflow reports without blocking.
+
+  A **repository** variable of the same name overrides the
+  organisation value, so a repository carrying a backlog can sit at
+  `high` without weakening the estate-wide default.
 
   For backward compatibility, when `AISLOP_GATE_LEVEL` is unset the
   legacy **`AISLOP_ENFORCE`** `= true` variable still selects the
   `all` tier. Changing the level requires no workflow change.
+- **Reduced coverage**: parts of the scan depend on services outside
+  the runner. aislop's dependency audit queries the npm registry's
+  advisory endpoint with the whole dependency tree, and under registry
+  load that request can exceed aislop's 25 s audit timeout. aislop
+  records the gap as a **coverage notice**
+  (`security/dependency-audit-skipped`; likewise
+  `dotnet/projects-skipped` and `cppcheck/chunks-skipped`) rather
+  than a finding: its own rationale is "visibility loss, not evidence
+  of a defect". The gate leaves those three rules out of every finding
+  count and instead raises a job-level warning titled *aislop scan
+  coverage degraded* naming the underlying error, so a registry
+  outage reads as an infrastructure condition rather than as a
+  finding the pull request added. A clean result with reduced
+  coverage is not conclusive; re-run the check once the service
+  recovers. Set the **`AISLOP_STRICT_COVERAGE`** organisation or
+  repository variable to `true` to make reduced coverage block at the
+  enforcing gate levels. A missing engine binary (`engines-ready` =
+  `false` from the action) counts as reduced coverage in the same
+  way.
 - **Version pin**: the aislop CLI version pin lives in
   `aislop-scan-action` (its bundled `package.json` / `package-lock.json`);
   bump it there via a PR and release, then update the action pin here.
@@ -422,13 +486,14 @@ ruleset, mirroring the zizmor audit:
    - **Repository**: `lfreleng-actions/.github`
    - **Workflow file path**: `.github/workflows/aislop.yaml`
    - **Ref**: `main`
-5. The `high` gate level is the default, so the check blocks a merge
-   whenever a pull request introduces a high-severity finding once you
-   enable **Require workflows to pass before merging**. To report
-   without blocking first, either leave **Do not require workflows
-   to pass before merging** *checked* or set the `AISLOP_GATE_LEVEL`
-   organisation variable to `off`; raise it to `all` to also enforce
-   the score threshold.
+5. The `any` gate level is the default, so the check blocks a merge
+   whenever a pull request's changed files carry a finding of any
+   severity once you enable **Require workflows to pass before
+   merging**. To report without blocking first, either leave **Do not
+   require workflows to pass before merging** *checked* or set the
+   `AISLOP_GATE_LEVEL` organisation variable to `off`; `high`
+   restores the earlier behaviour, which blocked on high severity
+   alone, and `all` enforces the score threshold as well.
 6. Click **Create**.
 
 After saving, every pull request opened in the organisation will
@@ -463,7 +528,12 @@ zizmor publisher at 06:00) it:
    **Security → Code scanning** tab under the `aislop` tool.
 4. Aggregates per-repository score metrics into a ranked, worst-first
    table in the run's step summary, answering "which repositories have
-   the biggest problems?" at a glance.
+   the biggest problems?" at a glance. A **Coverage** column marks
+   repositories whose scan ran with reduced coverage (an audit or
+   analyzer could not run, or an engine binary was missing), and the
+   summary counts them up front, so a bad day at the npm registry
+   reads as one infrastructure event rather than as a wave of newly
+   clean repositories.
 
 When a **scheduled** run fails or a maintainer cancels it, the workflow
 posts a Slack alert to `#releng-scm` (reusing the `SLACK_BOT_TOKEN`
@@ -589,9 +659,20 @@ block-mode jobs fail later with confusing `ECONNREFUSED` errors against hosts ad
 to the allow-list weeks earlier.
 
 Every Monday, `allow-list-bump.yaml` enumerates the in-scope
-repositories, runs [`gha-workflow-linter`][linter] against each with
-`--update-allow-list`, and opens a pull request wherever a pin moved. A
-Slack digest links every pull request raised.
+repositories, clones them side by side, runs [`gha-workflow-linter`][linter]
+once across the whole set with `--multi-repo --update-allow-list`, and
+opens a pull request wherever a pin moved. A Slack digest links every
+pull request.
+
+One sweep rather than a job per repository: a single hardened runner,
+one toolchain install and one linter process cover the whole family,
+and the job that produces the digest also sends it, rather than
+passing it between jobs as artefacts. A multi-repository run does
+share one resolution cache, but that is not what earns the
+arrangement here: every repository in scope sets a Dependabot
+cooldown, and the linter bypasses that cache whenever a cooldown
+applies, so each repository still resolves the allow-list host for
+itself.
 
 [linter]: https://github.com/lfreleng-actions/gha-workflow-linter
 
@@ -614,11 +695,79 @@ repositories from every run.
   confined to allow-list pins. Action version bumps belong to Dependabot, and
   mixing them makes the change harder to review and harder to revert.
 - The pinned reference and its version comment change, and nothing
-  else: quoting style, spacing and comment position all survive.
+  else: quoting style, spacing and comment position all survive. The
+  release the sweep moves to is the newest one eligible under the
+  repository's own Dependabot cooldown, which is not always the newest
+  released, and the pull request says so rather than calling it
+  current.
 - The sweep leaves alone any pin carrying an `allow-list-pin-ok`
   directive.
-- The branch name derives from the target version, so a re-run updates
-  the open pull request rather than opening a duplicate.
+- Each repository carries at most one sweep pull request, on a fixed
+  `chore/allow-list-bump` branch. A newer release supersedes the open
+  proposal in place rather than opening a second one beside it. A
+  re-run leaves the branch untouched when the open pull request already
+  carries the identical change, so an unreviewed pull request does not
+  reset its own review state every week; it rewrites the branch when
+  the target version moves or a pin appears that the proposal does not
+  yet cover. The comparison spans the files the pull request already
+  changes and the files this run rewrites, matching the two sets and
+  then their contents, so a commit merged into the default branch for
+  unrelated reasons does not force a rewrite. It looks at file contents
+  alone, so a hand-edited title or a description that has fallen out of
+  step gets put right without a commit. Comparing the description folds
+  out the link to the sweep run that last touched it, which would
+  otherwise differ every week.
+- Each rewrite builds its commit on a staging ref at the default branch
+  and then moves the proposal branch onto it. The proposal branch must
+  never point at the default branch, even for an instant, because
+  GitHub closes a pull request the moment head and base coincide,
+  taking its number, review threads and approvals with it. Building on
+  the default branch also keeps a workflow added there since the
+  proposal opened from landing as an add/add conflict, and keeps an
+  unrelated edit to a proposed file out of the diff under review.
+- The default branch can move while the sweep runs, between taking the
+  checkouts and writing. Each proposal builds on where that branch now
+  stands, not where the checkout found it. Where it moved under a file
+  the sweep rewrites, the checkout no longer describes that file and
+  any proposal from it would revert whatever landed, so the sweep
+  leaves that repository for the next run — whose checkout includes the
+  change — and names it in the run and the digest. Retiring a proposal
+  waits on any movement at all, since it rests entirely on the checkout
+  showing nothing to do and no later run can reopen what it closes.
+- A proposal that no longer changes anything gets retired. When the
+  default branch reaches the selected release by some other route, or
+  its pins already sit ahead of it, the sweep closes the open pull
+  request, deletes the branch and says so in the digest, rather than
+  leaving a no-op sitting in the review queue. A repository that has
+  removed its last workflow counts here too: the linter then reports a
+  clean result with no findings, and its proposal has nothing left to
+  propose. A repository whose allow-list host would not resolve gets
+  nothing done to it: with the host unknown, "nothing to fix" and
+  "could not look" are indistinguishable, and the run fails rather than
+  acting on the difference.
+- A stale pin the linter can see but cannot rewrite — one inside a
+  multi-line scalar, for instance — leaves the repository neither
+  current nor fixable. The sweep names it in the run and in the digest
+  and leaves every proposal alone, rather than retiring a pull request
+  in a repository that is still stale. Where such a repository already
+  carries an open proposal, the digest links and counts it as open, and
+  notes what still needs doing by hand.
+- Nearly every repository pins one allow-list host, and the pull
+  request title names the release it moves to. A repository pinning
+  more than one resolves more than one release, so naming a single
+  version would describe part of the change as though it were the
+  whole. Those pull requests carry a title without a version, list
+  every host and its release in the body and the commit message, and
+  the run warns that it found more than one.
+- Pull requests come from the organisation's `lf-releng-bot` GitHub
+  App, not from a maintainer. Code review is mandatory across the
+  organisation and nobody may approve their own work, so a sweep
+  raising pull requests as a person would produce changes that person
+  could not merge.
+- Commits reach the branch through the GitHub API rather than a push, so
+  GitHub signs them. The default branch of every repository in scope
+  carries a `required_signatures` rule, which an unverified commit
+  would fail.
 - A `dry-run` dispatch input reports what would change without opening
   anything.
 - The workflow pins the linter version in `LINTER_VERSION`, matching the
@@ -630,19 +779,34 @@ repositories from every run.
 
 <!-- markdownlint-disable MD013 -->
 
-| Name                      | Kind     | Purpose                                                                                                                               |
-| ------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `ALLOWLIST_BUMP_PAT`      | Secret   | Classic PAT with `repo` and `read:org`. The ephemeral `GITHUB_TOKEN` cannot push branches or open pull requests in another repository |
-| `ALLOW_LIST_BUMP_NAME`    | Variable | Commit author and committer name                                                                                                      |
-| `ALLOW_LIST_BUMP_EMAIL`   | Variable | Commit author and committer email, used for the DCO sign-off                                                                          |
-| `ALLOW_LIST_BUMP_EXCLUDE` | Variable | Optional extra exclude globs                                                                                                          |
-| `SLACK_BOT_TOKEN`         | Secret   | Shared with the other scheduled workflows                                                                                             |
-| `SLACK_CHANNEL_ID`        | Variable | Shared with the other scheduled workflows                                                                                             |
+| Name                        | Kind     | Purpose                                                                                                                  |
+| --------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `LF_RELENG_BOT_CLIENT_ID`   | Variable | Client ID of the `lf-releng-bot` GitHub App, shared with the other bot-authored workflows                                |
+| `LF_RELENG_BOT_PRIVATE_KEY` | Secret   | Private key (PEM) for that App. The sweep mints a short-lived installation token scoped to the repositories in the sweep |
+| `ALLOW_LIST_BUMP_EXCLUDE`   | Variable | Optional extra exclude globs                                                                                             |
+| `SLACK_BOT_TOKEN`           | Secret   | Shared with the other scheduled workflows                                                                                |
+| `SLACK_CHANNEL_ID`          | Variable | Shared with the other scheduled workflows                                                                                |
 
 <!-- markdownlint-enable MD013 -->
 
+The bot App must have write access to `contents`, `pull requests` and
+`workflows` on every repository the sweep covers. `workflows` matters in
+its own right: every file the sweep rewrites lives under
+`.github/workflows`. Minting the token fails outright when a repository
+in scope is missing from the installation.
+
+The bot's token writes and does nothing else. Repository discovery and
+the linter's own lookups use the ephemeral `GITHUB_TOKEN`: listing an
+organisation's public repositories needs no more, and
+`.github/scan-scope.json` sets `scan_private` to false. The lookups read
+public release data right across GitHub — the allow-list host, and every
+organisation whose actions these workflows call — almost none of which
+lies inside the App's repository selection. A cold-cache sweep of the
+whole family measured 2 REST calls and 174 GraphQL points, against a
+limit of 1000 per hour for each.
+
 All jobs run in the `production` environment, so environment protection
-rules can guard the PAT and the Slack token.
+rules can guard the App key and the Slack token.
 
 ### Repository Audit Workflow
 
@@ -680,12 +844,14 @@ repository name to the `excluded` array.
 
 ## Slack Setup
 
-The repository audit workflow and the scheduled zizmor / AI slop SARIF
-publishers send notifications using the official
+The repository audit workflow, the allow-list DNS check and the
+scheduled zizmor / AI slop SARIF publishers send notifications using
+the official
 [Slack GitHub Action](https://github.com/slackapi/slack-github-action).
-The publishers reuse the same `SLACK_BOT_TOKEN` secret and
-`SLACK_CHANNEL_ID` variable, and post to `#releng-scm` when a
-scheduled run fails. Complete the following one-time setup steps:
+They reuse the same `SLACK_BOT_TOKEN` secret and `SLACK_CHANNEL_ID`
+variable, and post to `#releng-scm`: the publishers when a scheduled
+run fails, and the DNS check when an allow-list record no longer
+resolves. Complete the following one-time setup steps:
 
 ### 1. Create a Slack App
 
